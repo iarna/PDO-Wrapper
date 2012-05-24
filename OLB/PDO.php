@@ -69,12 +69,12 @@ class PDO extends PHP_PDO {
             );
     }
 
-    private $params;
-    private $opts = array();
-    private $attrs = array();
-    private $dbh;
-    private $in_trans = FALSE;
-    private $is_singleton = FALSE;
+    protected $params;
+    protected $opts = array();
+    protected $attrs = array();
+    protected $dbh;
+    protected $in_trans = FALSE;
+    protected $is_singleton = FALSE;
 
     /**
      * A utility method to split OLB_PDO options from PDO connection attributes.
@@ -83,7 +83,7 @@ class PDO extends PHP_PDO {
      * @param array &$opts
      * @param array &$attrs
      */
-    private function _load_opts(array $attrs_and_opts, array &$opts, array &$attrs) {
+    protected function _load_opts(array $attrs_and_opts, array &$opts, array &$attrs) {
         foreach ($attrs_and_opts as $k=>$v) {
             if ( $k < 0 ) {
                 if ( is_null($v) ) {
@@ -140,9 +140,9 @@ class PDO extends PHP_PDO {
     }
     
     /// Store the instances of our singleton
-    static private $instances;    
+    static protected $instances;    
 
-    private $instance_id;
+    protected $instance_id;
 
     /**
      * Fetches the singleton PDO wrapper.  The parameters are the same
@@ -213,7 +213,7 @@ class PDO extends PHP_PDO {
         }
     }
 
-    private $connects = 0;
+    protected $connects = 0;
     
     /**
      * Sleep preceding a retry.
@@ -725,7 +725,7 @@ class PDO extends PHP_PDO {
         error_log( $msg );
     }
     
-    private $startTime = 0;
+    protected $startTime = 0;
 
     /**
      * Log database calls if tracing is enabled
