@@ -9,6 +9,7 @@
 
 include dirname(__FILE__)."/../build/mh_test.php";
 require_once "OLB/PDO.php";
+use OLB\PDO;
 
 global $t;
 $t = new mh_test(18);
@@ -25,7 +26,7 @@ define( "DSN", "mysql:host=".HOST.";dbname=".DBNAME );
 define( "USER", "root" );
 define( "PASS", null );
 
-class Test_PDO extends OLB_PDO {
+class Test_PDO extends PDO {
     public function logRetry( $connects, $retries, $str ) {
         global $t;
         $t->diag("MySQL connection #".$connects.", retry #".$retries.": $str");
@@ -33,7 +34,7 @@ class Test_PDO extends OLB_PDO {
 }
 
 $dbh = new Test_PDO( DSN, USER, PASS, array( 
-    OLB_PDO::TRACE               => 'trace', 
+    PDO::TRACE               => 'trace', 
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_WARNING,
     PDO::ATTR_EMULATE_PREPARES   => FALSE,
     PDO::MYSQL_ATTR_DIRECT_QUERY => FALSE,
@@ -43,7 +44,7 @@ $t->is( $dbh->getAttribute(PDO::ATTR_ERRMODE), PDO::ERRMODE_WARNING, "PDO error 
 
 $dbh->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
 // Exercise the set code path for OLB_PDO options as well
-$dbh->setAttribute( OLB_PDO::STH_CLASS, $dbh->getAttribute(OLB_PDO::STH_CLASS) );
+$dbh->setAttribute( PDO::STH_CLASS, $dbh->getAttribute(PDO::STH_CLASS) );
 
 $t->is( $dbh->getAttribute(PDO::ATTR_ERRMODE), PDO::ERRMODE_EXCEPTION, "PDO error mode set via setAttribute is set" );
 
@@ -123,7 +124,7 @@ $t->ok( ping($dbh), "And reconnect after recovering from transaction induced rec
 
 // Here we muck with reflection in order to fiddle with the stored reconnect parameters, so that
 // we can force that to fail.
-$class = new ReflectionClass("OLB_PDO");
+$class = new ReflectionClass("OLB\PDO");
 $prop = $class->getProperty("params");
 if ( is_callable(array($prop,"setAccessible")) ) {
     $prop->setAccessible(TRUE);

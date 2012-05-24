@@ -9,7 +9,7 @@
 
 include dirname(__FILE__)."/../build/mh_test.php";
 require_once "OLB/PDO.php";
-use PDO;
+use OLB\PDO;
 
 global $t;
 $t = new mh_test(29);
@@ -29,7 +29,7 @@ function trace($msg) {
 $dbh = new PDO( DSN, USER, PASS, array(PDO::TRACE=>'trace',PDO::ATTR_ERRMODE=>PDO::ERRMODE_SILENT) );
 
 $sth = $dbh->query("SELECT 1 AS result");
-$t->ok( $sth instanceOf PDO_STH or $sth instanceOf PDOStatement, "Query returns a statement handle" );
+$t->ok( $sth instanceOf OLB\PDO\STH or $sth instanceOf PDOStatement, "Query returns a statement handle" );
 $sth->bindColumn( 1, $result );
 $sth->fetch();
 $t->is( $result, 1, "Regular object worked ok" );

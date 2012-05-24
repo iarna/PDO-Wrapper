@@ -9,6 +9,7 @@
 
 include dirname(__FILE__)."/../build/mh_test.php";
 require_once "OLB/PDO.php";
+use OLB\PDO;
 
 global $t;
 $t = new mh_test(15);
@@ -25,7 +26,7 @@ define( "DSN", "mysql:host=".HOST.";dbname=".DBNAME );
 define( "USER", "root" );
 define( "PASS", null );
 
-class Test_PDO extends OLB_PDO {
+class Test_PDO extends PDO {
     public function logRetry( $connects, $retries, $str ) {
         global $t;
         $t->diag("MySQL connection #".$connects.", retry #".$retries.": $str");
@@ -35,8 +36,8 @@ class Test_PDO extends OLB_PDO {
 global $suffix;
 $suffix = getmypid();
 
-$dbh = Test_PDO::getInstance( DSN, USER, PASS, array( OLB_PDO::TRACE => 'trace', PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION ));
-$dbh2 = new Test_PDO( DSN, USER, PASS, array( OLB_PDO::TRACE => 'trace', PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION ));
+$dbh = Test_PDO::getInstance( DSN, USER, PASS, array( PDO::TRACE => 'trace', PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION ));
+$dbh2 = new Test_PDO( DSN, USER, PASS, array( PDO::TRACE => 'trace', PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION ));
 $init = array(
     "SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE",
     "SET net_read_timeout=70",
