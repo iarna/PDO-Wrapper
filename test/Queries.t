@@ -9,6 +9,7 @@
 
 include dirname(__FILE__)."/../build/mh_test.php";
 require_once "OLB/PDO.php";
+use PDO;
 
 global $t;
 $t = new mh_test(29);
@@ -25,10 +26,10 @@ function trace($msg) {
     $t->diag($msg);
 }
 
-$dbh = new OLB_PDO( DSN, USER, PASS, array(OLB_PDO::TRACE=>'trace',PDO::ATTR_ERRMODE=>PDO::ERRMODE_SILENT) );
+$dbh = new PDO( DSN, USER, PASS, array(PDO::TRACE=>'trace',PDO::ATTR_ERRMODE=>PDO::ERRMODE_SILENT) );
 
 $sth = $dbh->query("SELECT 1 AS result");
-$t->ok( $sth instanceOf OLB_PDO_STH or $sth instanceOf PDOStatement, "Query returns a statement handle" );
+$t->ok( $sth instanceOf PDO_STH or $sth instanceOf PDOStatement, "Query returns a statement handle" );
 $sth->bindColumn( 1, $result );
 $sth->fetch();
 $t->is( $result, 1, "Regular object worked ok" );
@@ -87,7 +88,7 @@ catch (PDOException $e) {
 $dbh->exec("DROP TABLE IF EXISTS pdo_test$suffix");
 $dbh->exec("CREATE TABLE pdo_test$suffix ( id int auto_increment primary key, foo varchar(50) not null ) ENGINE=InnoDB");
 
-$t->is( OLB_PDO::getAvailableDrivers(), PDO::getAvailableDrivers(), "getAvailableDrivers is a pass-through");
+$t->is( PDO::getAvailableDrivers(), PDO::getAvailableDrivers(), "getAvailableDrivers is a pass-through");
 
 $t->ok( $dbh->exec("DROP TABLE IF EXISTS abc123") !== FALSE, "Valid exec queries are ok" );
 

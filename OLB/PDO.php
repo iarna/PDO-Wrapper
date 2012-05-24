@@ -5,8 +5,15 @@
  * @package OLB::PDO
  * @author bturner@online-buddies.com
  */
+namespace OLB;
+
 require_once( dirname(__FILE__)."/PDO/STH.php" );
 require_once( dirname(__FILE__)."/PDOCommitTransaction.php" );
+
+use PDO as PHP_PDO;
+use PDOException;
+use OLB\PDO\STH;
+use Exception;
 
 /**
  * A wrapper for PDO that adds connection retries, singletons and safer transactions
@@ -20,7 +27,7 @@ require_once( dirname(__FILE__)."/PDOCommitTransaction.php" );
  *     It allows our wrapper to be used anywhere something has a class
  *     constraint on PDO.
  */
-class OLB_PDO extends PDO {
+class PDO extends PHP_PDO {
 
     /// The name of the statement handle class to use, default OLB_PDO_STH
     const STH_CLASS       = -1000;
@@ -49,16 +56,16 @@ class OLB_PDO extends PDO {
     ///    as PDO constants
     protected function connect_attrs() {
         return array(
-            self::STH_CLASS               => 'OLB_PDO_STH',
-            self::RETRIES                 => 5,
-            self::RETRY_BACKOFF           => 400, // ms
-            self::RETRY_JITTER            => 0.50, // * RETRY_BACKOFF * rand(1.0)
-            self::RETRY_SLEEP_AFTER       => 0,
-            self::TRACE                   => FALSE,
-            self::RETRY_DEADLOCKS         => FALSE,
-            self::ATTR_ERRMODE            => self::ERRMODE_EXCEPTION,
-            self::ATTR_AUTOCOMMIT         => TRUE,
-            self::MYSQL_ATTR_INIT_COMMAND => 'SET CHARACTER SET UTF8',
+            static::STH_CLASS              => '\OLB\PDO\STH',
+            static::RETRIES                => 5,
+            static::RETRY_BACKOFF          => 400, // ms
+            static::RETRY_JITTER           => 0.50, // * RETRY_BACKOFF * rand(1.0)
+            static::RETRY_SLEEP_AFTER       => 0,
+            static::TRACE                  => FALSE,
+            static::RETRY_DEADLOCKS        => FALSE,
+            static::ATTR_ERRMODE            => static::ERRMODE_EXCEPTION,
+            static::ATTR_AUTOCOMMIT         => TRUE,
+            static::MYSQL_ATTR_INIT_COMMAND => 'SET CHARACTER SET UTF8',
             );
     }
 
@@ -157,13 +164,13 @@ class OLB_PDO extends PDO {
         $instance_id = hash( 'sha256', json_encode($params) );
 
         // If our singleton exists already, fetch that...
-        if ( isset(self::$instances[$instance_id]) ) {
-            $dbh = self::$instances[$instance_id];
+        if ( isset(static::$instances[$instance_id]) ) {
+            $dbh = static::$instances[$instance_id];
         }
         // Otherwise make a new one
         if ( !isset($dbh) ) {
             $dbh = new $class( $dsn, $username, $password, $attrs );
-            self::$instances[$instance_id] = $dbh;
+            static::$instances[$instance_id] = $dbh;
             $dbh->is_singleton = TRUE;
             $dbh->instance_id = $instance_id;
         }
@@ -183,7 +190,7 @@ class OLB_PDO extends PDO {
             throw new PDOException("Can't clear singleton bit on a non-singleton database handle");
         }
         $this->is_singleton = FALSE;
-        unset(self::$instances[$this->instance_id]);
+        unset(static::$instances[$this->instance_id]);
     }
     
     /**
@@ -197,12 +204,12 @@ class OLB_PDO extends PDO {
         if ( !isset($this->instance_id) ) {
             throw new PDOException("Can't set singleton bit on a non-singleton database handle");
         }
-        if ( isset(self::$instances[$this->instance_id]) ) {
+        if ( isset(static::$instances[$this->instance_id]) ) {
             $this->logWarning( "Failed to set database handle, ".$this->params['dsn'].", as singleton as another one was already created" );
         }
         else {
             $this->is_singleton = TRUE;
-            self::$instances[$this->instance_id] = $this;
+            static::$instances[$this->instance_id] = $this;
         }
     }
 
@@ -214,9 +221,9 @@ class OLB_PDO extends PDO {
      * @param $tries Number of tries so far
      */
     public function retrySleep($tries) {
-        if ( $tries > $this->getAttribute( self::RETRY_SLEEP_AFTER ) ) {
-            $backoff = $this->getAttribute( self::RETRY_BACKOFF );
-            $jitter = $this->getAttribute( self::RETRY_JITTER );
+        if ( $tries > $this->getAttribute( static::RETRY_SLEEP_AFTER ) ) {
+            $backoff = $this->getAttribute( static::RETRY_BACKOFF );
+            $jitter = $this->getAttribute( static::RETRY_JITTER );
             $base_delay = $tries * $backoff;
             $random_jitter = mt_rand(0,$backoff*$jitter);
             usleep( ($base_delay + $random_jitter) * 1000 ); // msec to μsec
@@ -232,7 +239,7 @@ class OLB_PDO extends PDO {
         // First, disconnect from the database
         $this->disconnect();
 
-        $maxRetries = $this->getAttribute( self::RETRIES );
+        $maxRetries = $this->getAttribute( static::RETRIES );
 
         $this->connects ++;
         
@@ -248,7 +255,7 @@ class OLB_PDO extends PDO {
             
             // Try to create a new database handle and set any non-connection attributes
             try {
-                $this->dbh = new PDO( 
+                $this->dbh = new PHP_PDO( 
                     $this->params['dsn'],
                     $this->params['username'], 
                     $this->params['password'],
@@ -286,19 +293,19 @@ class OLB_PDO extends PDO {
      * Constructs a new statement handle wrapper
      * @param string $sql
      * @param array $opts driver options
-     * @returns OLB_PDO_STH
+     * @returns OLB::PDO::STH
      */
     public function prepare($sql, $opts=array()) {
         assert('is_string($sql)');
         assert('strlen($sql) > 0');
         if ( !isset($this->dbh) ) { $this->connect(); } // Reconnect if we were explicitly disconnected
 
-        $class = $this->getAttribute(self::STH_CLASS);
+        $class = $this->getAttribute(static::STH_CLASS);
         assert('isset($class)');
-        assert('is_subclass_of($class,"OLB_PDO_STH") or $class=="OLB_PDO_STH"');
+        assert('is_subclass_of($class,"\OLB\PDO\STH") or $class=="\OLB\PDO\STH"');
         
         /// @todo For 5.3: Change to $class::newFromPrepare($this,$sql,$opts);
-        return call_user_func( array($class,"newFromPrepare"), $this, $sql, $opts, $class );
+        return $class::newFromPrepare($this,$sql,$opts,$class);
     }
     
     /**
@@ -308,7 +315,7 @@ class OLB_PDO extends PDO {
      * @param string $statement
      * @param int $fetchMode_sem If this is set then it and any further
      * arguments are (conceptually) passed to setFetchMode.
-     * @returns OLB_PDO_STH
+     * @returns OLB::PDO::STH
      */
     public function query( $statement, $fetchMode_sem=null ) {
         assert('is_string($statement)');
@@ -317,7 +324,7 @@ class OLB_PDO extends PDO {
 
         $this->traceTimerStart();   
 
-        $class = $this->getAttribute(self::STH_CLASS);
+        $class = $this->getAttribute(static::STH_CLASS);
         
         $args = func_get_args();
         
@@ -329,8 +336,7 @@ class OLB_PDO extends PDO {
             $fetchMode = null;
         }
         
-        /// @todo For 5.3: Change to $class::newFromQuery($this,$statement,$fetchMode);
-        $result = call_user_func( array($class,"newFromQuery"), $this, $statement, $fetchMode, $class );
+        $result = $class::newFromQuery( $this, $statement, $fetchMode, $class );
         $this->traceCall("query",$args);
         return $result;
     }
@@ -475,7 +481,7 @@ class OLB_PDO extends PDO {
         assert( 'is_callable($do)');
         assert('!isset($rollback) or is_callable($rollback)');
         if ( ! isset($maxRetries ) ) {
-            $maxRetries = $this->getAttribute( self::RETRIES );
+            $maxRetries = $this->getAttribute( static::RETRIES );
         }
         assert( 'is_int($maxRetries)');
         assert( '$maxRetries > 0');
@@ -760,8 +766,8 @@ class OLB_PDO extends PDO {
      */
     public function logTrace( $str ) {
         assert('is_string($str)');
-        if ( is_callable($this->opts[self::TRACE]) ) {
-            call_user_func( $this->opts[self::TRACE], $str );
+        if ( is_callable($this->opts[static::TRACE]) ) {
+            call_user_func( $this->opts[static::TRACE], $str );
         }
         else {
             error_log("TRACE: $str");
@@ -773,7 +779,7 @@ class OLB_PDO extends PDO {
      * @returns bool
      */
     public function canTrace() {
-        return isset($this->opts[self::TRACE]) and $this->opts[self::TRACE];
+        return isset($this->opts[static::TRACE]) and $this->opts[static::TRACE];
     }
 
 }

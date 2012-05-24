@@ -5,10 +5,17 @@
  * @package OLB
  * @author bturner@online-buddies.com
  */
+namespace OLB\PDO;
+
+use PDOException;
+use OLB\PDO;
+use Iterator;
+use Exception;
+
 /**
  * OLB PDO statement handle wrapper
  */
-class OLB_PDO_STH implements Iterator {
+class STH implements Iterator {
 
     private $dbh;
     private $sql;
@@ -26,7 +33,7 @@ class OLB_PDO_STH implements Iterator {
      * @param string $sql
      * @param array $attrs
      */
-    private function __construct( OLB_PDO $dbh, $sql, array $attrs=array() ) {
+    private function __construct( PDO $dbh, $sql, array $attrs=array() ) {
         $this->dbh = $dbh;
         $this->sql = $sql;
         $this->attrs = $attrs;
@@ -43,7 +50,7 @@ class OLB_PDO_STH implements Iterator {
      * construct an inherited PDO_STH class.
      * @returns OLB_PDO_STH | FALSE
      */
-    public static function newFromPrepare( OLB_PDO $dbh, $sql, array $attrs=array(), $class ) {
+    public static function newFromPrepare( PDO $dbh, $sql, array $attrs=array(), $class ) {
         $obj = new $class( $dbh, $sql, $attrs );
         if ( $obj->prepare() ) {
             return $obj;
@@ -64,7 +71,7 @@ class OLB_PDO_STH implements Iterator {
      * construct an inherited PDO_STH class.
      * @returns OLB_PDO_STH | FALSE
      */
-    public static function newFromQuery( OLB_PDO $dbh, $sql, $fetchMode, $class) {
+    public static function newFromQuery( PDO $dbh, $sql, $fetchMode, $class) {
         $obj = new $class( $dbh, $sql );
         if ( $obj->query($fetchMode) ) {
             return $obj;
@@ -343,8 +350,8 @@ class OLB_PDO_STH implements Iterator {
         if ( ! isset($attrs) ) {
             $attrs = array();
         }
-        $retry_deadlocks = isset($attrs[ OLB_PDO::RETRY_DEADLOCKS ]) ? $attrs[ OLB_PDO::RETRY_DEADLOCKS ] : $this->dbh->getAttribute( OLB_PDO::RETRY_DEADLOCKS );
-        $total_tries = isset($attrs[ OLB_PDO::RETRIES ]) ? $attrs[ OLB_PDO::RETRIES ] : $this->dbh->getAttribute( OLB_PDO::RETRIES );
+        $retry_deadlocks = isset($attrs[ PDO::RETRY_DEADLOCKS ]) ? $attrs[ PDO::RETRY_DEADLOCKS ] : $this->dbh->getAttribute( PDO::RETRY_DEADLOCKS );
+        $tries = isset($attrs[ PDO::RETRIES ]) ? $attrs[ PDO::RETRIES ] : $this->dbh->getAttribute( PDO::RETRIES );
 
         // Clear our tracking variables for iterator mode
         $this->rowSets = 0;
