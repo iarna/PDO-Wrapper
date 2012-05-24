@@ -164,13 +164,13 @@ class PDO extends PHP_PDO {
         $instance_id = hash( 'sha256', json_encode($params) );
 
         // If our singleton exists already, fetch that...
-        if ( isset(static::$instances[$instance_id]) ) {
-            $dbh = static::$instances[$instance_id];
+        if ( isset(self::$instances[$instance_id]) ) {
+            $dbh = self::$instances[$instance_id];
         }
         // Otherwise make a new one
         if ( !isset($dbh) ) {
             $dbh = new $class( $dsn, $username, $password, $attrs );
-            static::$instances[$instance_id] = $dbh;
+            self::$instances[$instance_id] = $dbh;
             $dbh->is_singleton = TRUE;
             $dbh->instance_id = $instance_id;
         }
@@ -190,7 +190,7 @@ class PDO extends PHP_PDO {
             throw new PDOException("Can't clear singleton bit on a non-singleton database handle");
         }
         $this->is_singleton = FALSE;
-        unset(static::$instances[$this->instance_id]);
+        unset(self::$instances[$this->instance_id]);
     }
     
     /**
@@ -204,12 +204,12 @@ class PDO extends PHP_PDO {
         if ( !isset($this->instance_id) ) {
             throw new PDOException("Can't set singleton bit on a non-singleton database handle");
         }
-        if ( isset(static::$instances[$this->instance_id]) ) {
+        if ( isset(self::$instances[$this->instance_id]) ) {
             $this->logWarning( "Failed to set database handle, ".$this->params['dsn'].", as singleton as another one was already created" );
         }
         else {
             $this->is_singleton = TRUE;
-            static::$instances[$this->instance_id] = $this;
+            self::$instances[$this->instance_id] = $this;
         }
     }
 
