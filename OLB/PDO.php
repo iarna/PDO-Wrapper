@@ -304,7 +304,6 @@ class PDO extends PHP_PDO {
         assert('isset($class)');
         assert('is_subclass_of($class,"\OLB\PDO\STH") or $class=="\OLB\PDO\STH"');
         
-        /// @todo For 5.3: Change to $class::newFromPrepare($this,$sql,$opts);
         return $class::newFromPrepare($this,$sql,$opts,$class);
     }
     
