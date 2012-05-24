@@ -126,30 +126,26 @@ $t->ok( ping($dbh), "And reconnect after recovering from transaction induced rec
 // we can force that to fail.
 $class = new ReflectionClass("OLB\PDO");
 $prop = $class->getProperty("params");
-if ( is_callable(array($prop,"setAccessible")) ) {
-    $prop->setAccessible(TRUE);
-    $params = $prop->getValue( $dbh );
-    $params['password'] = "alskdjflkdjf";
-    $prop->setValue( $dbh, $params );
 
-    kill_process($dbh);
-    $t->try_test( "Without an invalid password, we can't reconnect" );
-    try {
-        ping($dbh);
-        $t->fail();
-        $t->skip();
-    }
-    catch (PDOException $e) {
-        $t->pass();
-        $t->like( $e->getMessage(), "/Access denied for user/", "We got an error message too" );
-    }
-    catch (Exception $e) {
-        $t->except_fail($e);
-        $t->skip();
-    }
+$prop->setAccessible(TRUE);
+$params = $prop->getValue( $dbh );
+$params['password'] = "alskdjflkdjf";
+$prop->setValue( $dbh, $params );
+
+kill_process($dbh);
+$t->try_test( "Without an invalid password, we can't reconnect" );
+try {
+    ping($dbh);
+    $t->fail();
+    $t->skip();
 }
-else {
-    $t->skip("Can't test failing reconnects without PHP 5.3",2);
+catch (PDOException $e) {
+    $t->pass();
+    $t->like( $e->getMessage(), "/Access denied for user/", "We got an error message too" );
+}
+catch (Exception $e) {
+    $t->except_fail($e);
+    $t->skip();
 }
 
 
