@@ -95,7 +95,7 @@ $dbh->exec("INSERT INTO pdo_test$suffix SET foo='test this'");
 
 
 // Test that successful transactions work
-function test1_do($dbh) {
+$dbh->execTransaction( function ($dbh) {
     global $t;
     $t->diag("Running transaction...");
     global $suffix;
@@ -106,44 +106,39 @@ function test1_do($dbh) {
     $sth->execute(array( "Test #".$row[0]." added"));
     global $id;
     $id = $dbh->lastInsertId();
-}
-function test1_rollback($dbh) {
+}, function ($dbh) {
     global $t;
     $t->diag("test1 rollback");
-}
-
-$dbh->execTransaction( "test1_do", "test1_rollback" );
+} );
 
 $sth = $dbh->prepare("SELECT * FROM pdo_test$suffix WHERE id=?");
 $sth->execute(array( $id ));
 $row = $sth->fetch();
 $t->like( $row['foo'], "/Test #\d+ added/", "Transaction completed");
 
-class TestException extends Exception implements OLB_PDOCommitTransaction {}
+class TestException extends Exception implements OLB\PDOCommitTransaction {}
 
 // Test that throwing a PDOCommiTransaction exception doesn't rollback
 // anything.
-function test_throw_do($dbh) {
-    global $t;
-    $t->diag("Running transaction...");
-    global $suffix;
-    $sth = $dbh->prepare("SELECT MAX(id) FROM pdo_test$suffix");
-    $sth->execute();
-    $row = $sth->fetch();
-    $sth = $dbh->prepare("INSERT INTO pdo_test$suffix SET foo=?");
-    $sth->execute(array( "Test #".$row[0]." added"));
-    global $id;
-    $id = $dbh->lastInsertId();
-    throw new TestException();
-}
-function test_throw_rollback($dbh) {
-    global $t;
-    $t->diag("test1 rollback");
-}
-
 $t->try_test("Trying transaction with commit safe exception");
 try {
-    $dbh->execTransaction( "test_throw_do", "test_throw_rollback" );
+    $dbh->execTransaction( function ($dbh) {
+        global $t;
+        $t->diag("Running transaction...");
+        global $suffix;
+        $sth = $dbh->prepare("SELECT MAX(id) FROM pdo_test$suffix");
+        $sth->execute();
+        $row = $sth->fetch();
+        $sth = $dbh->prepare("INSERT INTO pdo_test$suffix SET foo=?");
+        $sth->execute(array( "Test #".$row[0]." added"));
+        global $id;
+        $id = $dbh->lastInsertId();
+        throw new TestException();
+    }, function ($dbh) {
+        global $t;
+        $t->fail();
+        $t->diag("ROLLBACK");
+    } );
     $t->fail();
     $t->diag("Didn't see an exception thrown at all");
 }
@@ -158,30 +153,26 @@ catch (Exception $e) {
 $sth = $dbh->prepare("SELECT * FROM pdo_test$suffix WHERE id=?");
 $sth->execute(array( $id ));
 $row = $sth->fetch();
-$t->like( $row['foo'], "/Test #\d+ added/", "Transaction completed");
-
-
-
+$t->like( $row['foo'], "/Test #\d+ added/", "We found row $id from the transaction");
 
 
 // Test that invalid transactions get rolled back
 $t->try_test("invalid transaction rolled back");
-function test2_do($dbh) {
-    global $suffix;
-    $sth = $dbh->prepare("SELECT MAX(id) FROM pdo_test$suffix");
-    $sth->execute();
-    $row = $sth->fetch();
-    $sth = $dbh->prepare("INSEERT INTO pdo_test$suffix SET foo=?");
-    $sth->execute(array( "Test #".$row[0]." added"));
-    $t->fail();
-}
-function test2_rollback($dbh) {
-    global $t;
-    $t->pass();
-}
 
 try {
-    $dbh->execTransaction( "test2_do", "test2_rollback" );
+    $dbh->execTransaction( function ($dbh) {
+        global $suffix;
+        $sth = $dbh->prepare("SELECT MAX(id) FROM pdo_test$suffix");
+        $sth->execute();
+        $row = $sth->fetch();
+        $sth = $dbh->prepare("INSEERT INTO pdo_test$suffix SET foo=?");
+        $sth->execute(array( "Test #".$row[0]." added"));
+        $t->fail();
+    },
+    function ($dbh) {
+        global $t;
+        $t->pass();
+    });
     $t->fail("Invalid transaction threw exception");
 }
 catch (PDOException $e) {
@@ -193,34 +184,33 @@ catch (PDOException $e) {
 // current development environment.
 global $tried;
 $tried = 0;
-function test3_do($dbh) {
-    global $t;
-    $t->diag("Running transaction...");
-    global $suffix;
-    $sth = $dbh->prepare("SELECT MAX(id) FROM pdo_test$suffix");
-    $sth->execute();
-    $row = $sth->fetch();
-    global $tried;
-    if ( ! $tried ++ ) {
-        throw new PDOException("SQLSTATE[0000]: 1213 Deadlock found when trying to get lock; try restarting transaction");
-    }
-    global $t;
-    $t->pass("No rollback outside of the first pass");
-}
-function test3_rollback($dbh) {
-    global $t;
-    global $tried;
-    if ( $tried == 1) {
-        $t->diag("Rolling back due to deadlock on first pass");
-    }
-    else {
-        $t->fail("No rollback outside of the first pass");
-    }
-}
 
 $t->try_test("'Deadlocking' transaction");
 try {
-    $dbh->execTransaction( "test3_do", "test3_rollback" );
+    $dbh->execTransaction( function ($dbh) {
+        global $t;
+        $t->diag("Running transaction...");
+        global $suffix;
+        $sth = $dbh->prepare("SELECT MAX(id) FROM pdo_test$suffix");
+        $sth->execute();
+        $row = $sth->fetch();
+        global $tried;
+        if ( ! $tried ++ ) {
+            throw new PDOException("SQLSTATE[0000]: 1213 Deadlock found when trying to get lock; try restarting transaction");
+        }
+        global $t;
+        $t->pass("No rollback outside of the first pass");
+    },
+    function ($dbh) {
+        global $t;
+        global $tried;
+        if ( $tried == 1) {
+            $t->diag("Rolling back due to deadlock on first pass");
+        }
+        else {
+            $t->fail("No rollback outside of the first pass");
+        }
+    } );
     $t->pass();
 }
 catch (Exception $e) {
@@ -229,22 +219,20 @@ catch (Exception $e) {
 
 $tried = 0;
 // Make the retry counter fail out
-function test4_do($dbh) {
-    global $t;
-    $t->diag("Running transaction...");
-    global $tried;
-    $tried ++;
-    kill_process($dbh);
-    ping($dbh);
-}
-function test4_rollback($dbh) {
-    global $t;
-    $t->diag("Rolling back");
-}
-
 $t->try_test("Transaction fail retry timeout");
 try {
-    $dbh->execTransaction( "test4_do", "test4_rollback" );
+    $dbh->execTransaction( function ($dbh) {
+        global $t;
+        $t->diag("Running transaction...");
+        global $tried;
+        $tried ++;
+        kill_process($dbh);
+        ping($dbh);
+    },
+    function ($dbh) {
+        global $t;
+        $t->diag("Rolling back");
+    } );
     $t->fail();
 }
 catch (PDOException $e) {
@@ -254,17 +242,15 @@ $t->is( $tried, 6, "transaction retries exhausted all retries" );
 
 
 // Make the retry counter fail out
-function test5_do($dbh) {
-    throw new Exception("BOOM");
-}
-function test5_rollback($dbh) {
-    global $t;
-    $t->diag("Rolling back");
-}
-
 $t->try_test("Transaction fail retry timeout");
 try {
-    $dbh->execTransaction( "test5_do", "test5_rollback" );
+    $dbh->execTransaction( function ($dbh) {
+        throw new Exception("BOOM");
+    },
+    function ($dbh) {
+        global $t;
+        $t->diag("Rolling back");
+    } );
     $t->fail();
 }
 catch (Exception $e) {
@@ -278,23 +264,6 @@ $dbh->exec("DROP TABLE IF EXISTS deadlock_maker$suffix");
 $dbh->exec("CREATE TABLE deadlock_maker$suffix (a INT PRIMARY KEY) ENGINE=InnoDB");
 $dbh->exec("INSERT INTO deadlock_maker$suffix (a) VALUES (1), (2)");
 
-function testXX_do($dbh) {
-    global $suffix;
-    $dbh->query("SELECT * FROM deadlock_maker$suffix WHERE a=1")->fetchAll();
-    try {
-        $dbh->exec("UPDATE deadlock_maker$suffix SET a=1 WHERE a <> 1");
-    }
-    catch (PDOException $e) {
-        if ( strpos($e->getMessage(), "1062 Duplicate entry") === FALSE ) {
-            throw $e;
-        }
-    }
-}
-function testXX_rollback($dbh) {
-    global $t;
-    $t->diag("test1 rollback");
-}
-
 $dbh2->beginTransaction();
 $dbh2->query("SELECT * FROM deadlock_maker$suffix WHERE a=2")->fetchAll();
 try {
@@ -306,7 +275,21 @@ catch (PDOException $e) {
     }
     $t->diag("Duplicate on update, that's fine.");
 }
-$dbh->execTransaction( "testXX_do", "testXX_rollback" );
+$dbh->execTransaction( function ($dbh) {
+    global $suffix;
+    $dbh->query("SELECT * FROM deadlock_maker$suffix WHERE a=1")->fetchAll();
+    try {
+        $dbh->exec("UPDATE deadlock_maker$suffix SET a=1 WHERE a <> 1");
+    }
+    catch (PDOException $e) {
+        if ( strpos($e->getMessage(), "1062 Duplicate entry") === FALSE ) {
+            throw $e;
+        }
+    }
+}, function ($dbh) {
+    global $t;
+    $t->diag("test1 rollback");
+} );
 if ( $dbh2->inTransaction() ) {
     $dbh2->query("SELECT 1")->fetchAll();
     $dbh2->commit();
