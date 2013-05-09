@@ -351,7 +351,7 @@ class STH implements Iterator {
             $attrs = array();
         }
         $retry_deadlocks = isset($attrs[ PDO::RETRY_DEADLOCKS ]) ? $attrs[ PDO::RETRY_DEADLOCKS ] : $this->dbh->getAttribute( PDO::RETRY_DEADLOCKS );
-        $tries = isset($attrs[ PDO::RETRIES ]) ? $attrs[ PDO::RETRIES ] : $this->dbh->getAttribute( PDO::RETRIES );
+        $total_tries = isset($attrs[ PDO::RETRIES ]) ? $attrs[ PDO::RETRIES ] : $this->dbh->getAttribute( PDO::RETRIES );
 
         // Clear our tracking variables for iterator mode
         $this->rowSets = 0;
