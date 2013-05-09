@@ -529,7 +529,7 @@ class PDO extends PHP_PDO {
                     $this->retrySleep($tries);
                 }
             }
-            catch (OLB_PDOCommitTransaction $e) {
+            catch (PDOCommitTransaction $e) {
                 $this->commit();
                 if ( $single ) { $this->makeSingleton(); }
                 throw $e;
